@@ -1,0 +1,3 @@
+{"id":"benign-0001","image":"/absolute/path/to/image.jpg","prompt":"What is shown in this image?","label":0,"dataset":"custom","split":"train","category":"benign","answer":"","metadata":{}}
+{"id":"unsafe-0001","image":"/absolute/path/to/controlled_test_image.jpg","prompt":"A controlled safety-evaluation prompt.","label":1,"dataset":"custom","split":"train","category":"unsafe","answer":"","metadata":{}}
+
