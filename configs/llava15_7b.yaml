@@ -1,0 +1,45 @@
+seed: 42
+
+model:
+  name_or_path: llava-hf/llava-1.5-7b-hf
+  dtype: float16
+  device_map: auto
+  attention_implementation: eager
+  trust_remote_code: false
+  low_cpu_mem_usage: true
+  prompt_template: |-
+    USER: <image>
+    {prompt}
+    ASSISTANT:
+
+sasa:
+  # Paper layer numbers are treated as zero-based decoder-block indices.
+  fused_layer: 15
+  safety_layer: 13
+  epsilon: 1.0e-6
+  projection_mode: replace
+  mix_coefficient: 1.0
+
+features:
+  # "logits" follows the paper text. "last_hidden" is a diagnostic alternative.
+  kind: logits
+  storage_dtype: float32
+
+probe:
+  threshold: 0.5
+  regularization_c: 1.0
+  class_weight: balanced
+  solver: liblinear
+  max_iter: 2000
+  normalize: none
+  validation_fraction: 0.2
+
+generation:
+  max_new_tokens: 128
+  do_sample: false
+  temperature: 1.0
+  top_p: 1.0
+  num_beams: 1
+  refusal_text: "I'm sorry, but I cannot help with that request."
+  safe_generation_mode: original
+
