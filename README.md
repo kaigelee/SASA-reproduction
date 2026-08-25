@@ -1,46 +1,47 @@
-# SASA 论文复现工程
+# SASA Reproduction Project
 
-这是一个从零搭建、可直接扩展的 **SASA（Self-Aware Safety Augmentation）** 复现框架。默认后端是
-`llava-hf/llava-1.5-7b-hf`，实现了论文的核心两次前向投影、首 token 特征抽取、线性安全探针、
-推理时安全门，以及论文中的主要机理分析。
+This repository provides a **SASA (Self-Aware Safety Augmentation: Leveraging Internal Semantic Understanding to Enhance Safety in Vision-Language Models)** reproduction framework built from scratch and designed for direct extension. The default backend is`llava-hf/llava-1.5-7b-hf`. It implements the paper's core two-pass projection, first-token feature extraction, linear safety probe,
+inference-time safety gate, and major mechanistic analyses.
 
-> 重要：仓库提供的是完整可运行代码，而不是预先生成的论文结果。7B 权重和官方数据集需要你自行下载；
-> 完整实验需 NVIDIA GPU。代码默认不会联网上传图片或结果。
+> **Important:** This repository provides complete runnable code rather than pre-generated paper results. You must download the 7B model weights and official datasets yourself.
+> Full experiments require an NVIDIA GPU. By default, the code does not upload images or results to the Internet.
 
-## 1. 已实现的模块
+![Overall workflow of Self-Aware Safety Augmentation (SASA)](assets/sasa_workflow.png)
 
-- MM-SafetyBench、VLGuard、FigStep 官方目录到统一 JSONL 的数据适配器。
-- LLaVA-v1.5-7B 加载、提示模板、原始基线生成。
-- 论文公式 8 的 token-wise 安全表征投影：从融合层 `f=15` 投影并替换安全层 `s=13`。
-- 投影后首 token logits / 最终隐藏态特征抽取。
-- Logistic Regression 安全探针训练、保存、加载和阈值推理。
-- SASA 推理门：危险输入直接拒绝，安全输入走原始 LLaVA 生成。
-- 慢速逐 token 投影贪心解码（只作为诊断，不假装是论文明确给出的解码算法）。
-- 注意力头消融、主奇异向量夹角、安全特异头筛选。
-- 分层 logit-lens 可读性、隐藏态 t-SNE、图文模态对齐分析。
-- ASR/良性拒绝率、Accuracy/F1/AUC 等评估。
-- 不需模型权重的单元测试与静态检查。
+## 1. Implemented Modules
 
-## 2. 目录结构
+- Data adapters that convert the official MM-SafetyBench, VLGuard, and FigStep directory structures into a unified JSONL format.
+- LLaVA-v1.5-7B loading, prompt templates, and original baseline generation.
+- Token-wise safety representation projection from Equation 8 of the paper: project from the fusion layer `f=15` and replace the representation at the safety layer `s=13`.
+- Extraction of first-token logits and final hidden-state features after projection.
+- Training, saving, loading, and threshold-based inference for a Logistic Regression safety probe.
+- SASA inference gate: unsafe inputs are rejected directly, while safe inputs are passed to the original LLaVA generation pipeline.
+- Slow token-by-token projected greedy decoding for diagnostic purposes only; it is not presented as a decoding algorithm explicitly specified by the paper.
+- Attention-head ablation, principal singular-vector angle analysis, and safety-specific head selection.
+- Layer-wise logit-lens interpretability, hidden-state t-SNE, and image-text modality alignment analysis.
+- Evaluation of attack success rate (ASR), benign refusal rate, Accuracy, F1, AUC, and related metrics.
+- Unit tests and static checks that do not require model weights.
+
+## 2. Directory Structure
 
 ```text
-configs/llava15_7b.yaml            # 默认实验配置
-examples/manifest.example.jsonl    # 统一数据格式示例
-scripts/                            # 00–10：从环境检查到机理分析
+configs/llava15_7b.yaml            # Default experiment configuration
+examples/manifest.example.jsonl    # Example of the unified data format
+scripts/                            # 00–10: from environment checks to mechanistic analyses
 src/sasa_repro/
-  data/                             # 数据转换、分层采样
-  model/                            # LLaVA 适配、投影、模块定位
-  probe/                            # 线性安全探针
-  evaluation/                       # 拒绝判断与指标
-  analysis/                         # 头消融、分层、模态对齐
-tests/                              # 快速单元测试
+  data/                             # Data conversion and stratified sampling
+  model/                            # LLaVA adaptation, projection, and module discovery
+  probe/                            # Linear safety probe
+  evaluation/                       # Refusal detection and evaluation metrics
+  analysis/                         # Head ablation, layer-wise analysis, and modality alignment
+tests/                              # Fast unit tests
 ```
 
-## 3. 环境
+## 3. Environment
 
-推荐 Linux、Python 3.10–3.12、CUDA 12.x，以及至少一张 24 GiB GPU。FP16 模型本身约需
-14 GiB，运行时还需视觉编码器、激活和生成缓存；做全层激活分析时建议 40 GiB 以上或用多卡
-`device_map: auto`。CPU 也能加载部分组件，但不适合完整 7B 实验。
+Linux, Python 3.10–3.12, CUDA 12.x, and at least one 24 GiB GPU are recommended. The FP16 model itself requires approximately
+14 GiB. Additional memory is needed at runtime for the vision encoder, activations, and generation cache. For full-layer activation analysis, a GPU with at least 40 GiB is recommended; alternatively, use multiple GPUs with
+`device_map: auto`. Some components can be loaded on CPU, but CPU execution is unsuitable for complete 7B experiments.
 
 ```bash
 cd sasa-reproduction
@@ -51,22 +52,22 @@ python -m pip install -e .
 python scripts/00_check_environment.py
 ```
 
-模型接口按 Hugging Face 的 [LLaVA 文档](https://huggingface.co/docs/transformers/model_doc/llava)
-和 [`llava-1.5-7b-hf` 模型卡](https://huggingface.co/llava-hf/llava-1.5-7b-hf) 编写。
+The model interface follows the Hugging Face [LLaVA documentation](https://huggingface.co/docs/transformers/model_doc/llava)
+and the [`llava-1.5-7b-hf` model card](https://huggingface.co/llava-hf/llava-1.5-7b-hf).
 
-## 4. 数据格式与准备
+## 4. Data Format and Preparation
 
-所有阶段都使用一行一个样本的 JSONL：
+All stages use JSONL files with one sample per line:
 
 ```json
 {"id":"unique-id","image":"/absolute/path/image.jpg","prompt":"...","label":1,"dataset":"vlguard","split":"train","category":"unsafe","answer":"","metadata":{}}
 ```
 
-`label=1` 表示不安全，`label=0` 表示安全。图片路径建议是绝对路径。
+`label=1` denotes an unsafe sample, while `label=0` denotes a safe sample. Absolute image paths are recommended.
 
 ### MM-SafetyBench
 
-下载[官方仓库](https://github.com/isXinLiu/MM-SafetyBench)并按其说明准备图片，然后：
+Download the [official repository](https://github.com/isXinLiu/MM-SafetyBench), prepare the images according to its instructions, and then run:
 
 ```bash
 python scripts/01_prepare_manifest.py mm-safetybench \
@@ -77,7 +78,7 @@ python scripts/01_prepare_manifest.py mm-safetybench \
 
 ### VLGuard
 
-下载[官方仓库](https://github.com/ys-zong/VLGuard)及测试图片：
+Download the [official repository](https://github.com/ys-zong/VLGuard) and its test images:
 
 ```bash
 python scripts/01_prepare_manifest.py vlguard \
@@ -87,12 +88,12 @@ python scripts/01_prepare_manifest.py vlguard \
   --output data/vlguard.jsonl
 ```
 
-其中 `unsafes`、`safe_unsafes` 标为不安全，`safe_safes` 标为安全。实际图片根目录按下载后的
-JSON 中 `image` 字段调整。
+The `unsafes` and `safe_unsafes` subsets are labeled unsafe, while `safe_safes` is labeled safe. Adjust the image root to match the
+`image` field in the downloaded JSON file.
 
 ### FigStep
 
-下载[官方仓库](https://github.com/CryptoAILab/FigStep)的 SafeBench CSV 和排版攻击图片：
+Download the SafeBench CSV and typographic attack images from the [official repository](https://github.com/CryptoAILab/FigStep):
 
 ```bash
 python scripts/01_prepare_manifest.py figstep \
@@ -101,7 +102,7 @@ python scripts/01_prepare_manifest.py figstep \
   --output data/figstep.jsonl
 ```
 
-合并或分层抽样：
+Merge manifests or perform stratified sampling:
 
 ```bash
 python scripts/02_merge_manifests.py data/vlguard.jsonl data/figstep.jsonl \
@@ -111,12 +112,11 @@ python scripts/02_sample_manifest.py --input data/all.jsonl \
   --output data/all_small.jsonl --per-group 20 --seed 42
 ```
 
-训练探针必须同时含有 `label=0` 和 `label=1`。建议训练集和测试集按原数据集划分隔离，避免同图或
-同问题泄漏。
+Probe training requires both `label=0` and `label=1` samples. The training and test sets should follow the original dataset splits and remain isolated to prevent leakage from duplicated images or questions.
 
-## 5. 最短复现路径
+## 5. Minimal Reproduction Pipeline
 
-### 5.1 原始 LLaVA 基线
+### 5.1 Original LLaVA Baseline
 
 ```bash
 python scripts/03_baseline_generate.py \
@@ -125,7 +125,7 @@ python scripts/03_baseline_generate.py \
   --output outputs/baseline.jsonl
 ```
 
-### 5.2 抽取 SASA 特征
+### 5.2 Extract SASA Features
 
 ```bash
 python scripts/04_extract_features.py \
@@ -134,10 +134,10 @@ python scripts/04_extract_features.py \
   --output outputs/train_sasa_logits.npz
 ```
 
-默认使用投影后最后一个提示位置的 logits。消融对照可加 `--no-projection`；隐藏态对照可加
-`--kind last_hidden`。
+By default, the script uses the logits at the final prompt position after projection. Add `--no-projection` for an ablation baseline, or use
+`--kind last_hidden` for a hidden-state baseline.
 
-### 5.3 训练线性探针
+### 5.3 Train the Linear Probe
 
 ```bash
 python scripts/05_train_probe.py \
@@ -146,9 +146,9 @@ python scripts/05_train_probe.py \
   --output outputs/sasa_probe.joblib
 ```
 
-如已有独立验证集，先抽取其特征，再传 `--validation-features path/to/validation.npz`。
+If an independent validation set is available, extract its features first and then pass `--validation-features path/to/validation.npz`.
 
-### 5.4 运行安全门并评估
+### 5.4 Run the Safety Gate and Evaluate
 
 ```bash
 python scripts/06_run_guard.py \
@@ -162,14 +162,14 @@ python scripts/07_evaluate.py \
   --output outputs/sasa_metrics.json
 ```
 
-默认策略是：探针判为危险就返回固定拒绝语；判为安全才调用原始模型生成。这既能把检测和生成解耦，
-也避免把两次前向投影错误地混入 Hugging Face 的 KV-cache 生成。若想研究投影隐藏态本身是否可生成，
-将配置里的 `safe_generation_mode` 改成 `projected_greedy`；该模式每个 token 做两次完整前向，速度很慢。
+The default policy returns a fixed refusal response when the probe classifies an input as unsafe. Only inputs classified as safe are passed to the original model for generation. This design decouples detection from generation
+and prevents the two-pass projection from being incorrectly mixed with Hugging Face KV-cache generation. To investigate whether projected hidden states can themselves support generation,
+set `safe_generation_mode` in the configuration file to `projected_greedy`. This mode performs two complete forward passes for every token and is therefore very slow.
 
-## 6. 核心实现与论文对应
+## 6. Mapping the Core Implementation to the Paper
 
-设融合层隐藏态为 `H_f`，较早安全层隐藏态为 `H_s`。第一遍前向缓存 `H_f`；第二遍前向在安全层
-输出处注册 hook，并按隐藏维对每个 token 做：
+Let the hidden state at the fusion layer be `H_f` and the hidden state at the earlier safety layer be `H_s`. The first forward pass caches `H_f`. During the second forward pass,
+a hook is registered at the output of the safety layer, and the following projection is applied to every token along the hidden dimension:
 
 ```text
 alpha       = <H_s, H_f> / (||H_f||² + epsilon)
@@ -177,21 +177,20 @@ H_projected = alpha * H_f
 H_s         = H_projected
 ```
 
-随后让替换后的隐藏态继续通过后续解码层，取提示末位置输出作为线性探针输入。`hidden_states[0]` 是
-embedding，所以代码中第 `f` 个 decoder block 对应 `hidden_states[f + 1]`。
+The replaced hidden states then continue through the subsequent decoder layers. The output at the final prompt position is used as the input to the linear probe. Because `hidden_states[0]` is the
+embedding output, decoder block `f` corresponds to `hidden_states[f + 1]` in the implementation.
 
-默认配置把论文层号解释为 **从 0 开始的 decoder block 索引**：`fused_layer=15`、
-`safety_layer=13`。如果你确认论文实现使用从 1 开始编号，应改为 14 和 12，并把两套结果作为敏感性
-实验同时报告。
+The default configuration interprets the layer numbers in the paper as **zero-based decoder-block indices**: `fused_layer=15` and
+`safety_layer=13`. If you confirm that the paper's implementation uses one-based numbering, change these values to 14 and 12, respectively, and report both settings as a sensitivity experiment.
 
-`projection_mode=replace` 是论文公式对应项；`residual` 和 `interpolate` 仅用于消融。探针默认是无特征
-归一化、类别平衡的 Logistic Regression。所有这些选择都集中在 `configs/llava15_7b.yaml`。
+`projection_mode=replace` corresponds to the equation in the paper. The `residual` and `interpolate` modes are provided only for ablation studies. By default, the probe is a class-balanced Logistic Regression model without feature
+normalization. All these choices are centralized in `configs/llava15_7b.yaml`.
 
-## 7. 机理分析
+## 7. Mechanistic Analysis
 
-### 注意力头定位
+### Attention-Head Localization
 
-先分别在安全任务样本与通用效用样本上计算头消融分数：
+First, compute head-ablation scores separately on safety-task samples and general-utility samples:
 
 ```bash
 python scripts/08_locate_safety_heads.py --manifest data/safety_probe.jsonl \
@@ -205,54 +204,54 @@ python scripts/08_locate_safety_heads.py \
   --top-k 10 --comparison-output outputs/safety_specific_heads.json
 ```
 
-默认忠实采用论文文字描述的“左奇异向量”。`--singular-side right` 提供特征空间向量的替代解释。
-全量 `32×32` 头消融非常昂贵，CSV 支持断点续跑；建议先用少量样本和少量层/头确认流程。
+By default, the implementation follows the paper's description and uses the “left singular vector.” The `--singular-side right` option provides an alternative interpretation based on a feature-space vector.
+Exhaustive ablation over all `32×32` heads is very expensive. CSV output supports resuming interrupted runs; begin with a small number of samples and a limited set of layers and heads to verify the pipeline.
 
-### 分层可读性与 t-SNE
+### Layer-Wise Interpretability and t-SNE
 
 ```bash
 python scripts/09_analyze_layers.py --manifest data/analysis.jsonl \
   --output-dir outputs/layers --limit 100 --layers 0,5,10,13,15,20,25,31
 ```
 
-### 图文模态对齐
+### Image-Text Modality Alignment
 
 ```bash
 python scripts/10_analyze_alignment.py --manifest data/analysis.jsonl \
   --output-dir outputs/alignment --limit 100
 ```
 
-“纯图片”对自回归 LLaVA 并非定义良好的输入，因此这里用固定中性指令 `Describe the image.` 作为
-图片主导控制组，并在报告中显式保留这一操作化定义。
+An “image-only” input is not well defined for autoregressive LLaVA. Therefore, this analysis uses the fixed neutral instruction `Describe the image.` as an
+image-dominant control and explicitly retains this operational definition in the report.
 
-## 8. 评估解释
+## 8. Interpreting the Evaluation
 
-- `attack_success_rate`：不安全样本中未触发拒绝关键词的比例，越低越好。
-- `benign_refusal_rate`：安全样本中触发拒绝的比例，越低越好。
-- 探针报告 Accuracy、F1、ROC-AUC、不安全召回率和假阳性率。
-- `evaluation/keywords.py` 收录论文列出的拒绝关键词，但关键词 ASR 只是可复现的近似指标；若论文主表
-  使用人工或 LLM judge，应另行产生逐样本 judge 标签后再比较，不能把关键词结果冒充主表结果。
+- `attack_success_rate`: the proportion of unsafe samples that do not trigger any refusal keyword; lower is better.
+- `benign_refusal_rate`: the proportion of safe samples that trigger a refusal; lower is better.
+- The probe report includes Accuracy, F1, ROC-AUC, unsafe-class recall, and false positive rate.
+- `evaluation/keywords.py` contains the refusal keywords listed in the paper. However, keyword-based ASR is only a reproducible approximation. If the paper's main table
+  uses human evaluation or an LLM judge, generate per-sample judge labels separately before comparison; keyword-based results must not be presented as equivalent to the main-table results.
 
-建议至少报告三组：原始 LLaVA、无投影线性探针、SASA 投影线性探针；同时给出均值、随机种子、
-样本数、数据版本、阈值和失败样本数。
+At minimum, report three settings: original LLaVA, a linear probe without projection, and a SASA projection-based linear probe. Also report the mean, random seed,
+number of samples, dataset version, threshold, and number of failed samples.
 
-## 9. 测试与常见问题
+## 9. Testing and Troubleshooting
 
 ```bash
 make check
 make test
 ```
 
-- OOM：把 `max_new_tokens` 调小，使用多卡 `device_map: auto`，或将 dtype 改为 `bfloat16`（硬件支持时）。
-- 找不到 decoder 层：检查 Transformers 版本；模块路径集中在 `model/introspection.py`，便于适配新版本。
-- 图片 token 数不匹配：不要手工删除 `<image>`，并保持模型与 processor 来自同一 checkpoint。
-- 结果与论文不同：先核对层号基准、数据版本/子集、提示模板、首 token 定义、随机种子和判拒标准。
-- 安全研究应在隔离环境、公开基准与授权模型上进行，不要把测试流程用于现实伤害。
+- **Out of memory (OOM):** Reduce `max_new_tokens`, use multiple GPUs with `device_map: auto`, or change the dtype to `bfloat16` if supported by the hardware.
+- **Decoder layers cannot be found:** Check the Transformers version. Module paths are centralized in `model/introspection.py` to simplify adaptation to new versions.
+- **Image-token count mismatch:** Do not manually remove `<image>`, and ensure that the model and processor come from the same checkpoint.
+- **Results differ from the paper:** First verify the layer-indexing convention, dataset version and subset, prompt template, definition of the first token, random seed, and refusal criterion.
+- **Safety notice:** Conduct safety research only in isolated environments using public benchmarks and authorized models. Do not use the testing pipeline to cause real-world harm.
 
-## 10. 已知边界
+## 10. Known Limitations
 
-论文未附代码时，一些工程细节无法仅靠正文唯一确定。本项目不会隐藏这些分歧：层号基准、探针输入
-是否归一化、奇异向量取左还是右、图片控制提示、以及投影是否参与逐 token 解码都可配置或有独立诊断
-入口。复现实验应冻结配置文件，并在论文/报告中逐项披露。
+When a paper does not release its code, some implementation details cannot be uniquely determined from the manuscript alone. This project makes these ambiguities explicit: the layer-indexing convention, whether probe inputs are
+normalized, whether left or right singular vectors are used, the image-control prompt, and whether projection participates in token-by-token decoding are all configurable or supported through separate diagnostic
+entry points. Reproduction experiments should freeze the configuration file and disclose each choice individually in the paper or report.
 
-MIT License。模型和数据仍分别受其原始许可证与使用条款约束。
+MIT License. The model and datasets remain subject to their respective original licenses and terms of use.
